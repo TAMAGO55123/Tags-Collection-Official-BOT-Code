@@ -8,12 +8,12 @@ from func.log import get_log
 class WelcomeCog(commands.Cog):
     def __init__(self, bot:Bot):
         self.bot = bot
-        self.log = get_log("ManageTagCog")
+        self.log = get_log("WelcomeCog")
         self.DB = Tag_DB()
     
     @commands.Cog.listener()
     async def on_ready(self):
-        self.log.info(f"SampleCogを読み込みました!")
+        self.log.info(f"WelcomeCogを読み込みました!")
     
     @commands.Cog.listener()
     async def on_member_join(self, member:discord.Member):
