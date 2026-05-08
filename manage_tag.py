@@ -21,6 +21,15 @@ import re
 class tagdb1(app_commands.Group):
     pass
 
+class TagLinkButton(Button):
+    def __init__(self, id:int):
+        super().__init__(style=ButtonStyle.green, label="共有リンク", disabled=False, url=f"https://tags-collection.f5.si/server?id={id}")
+
+class TagLinkView(View):
+    def __init__(self, id:int):
+        super().__init__(timeout=None)
+        self.add_item(TagLinkButton(id=id))
+
 class ManageTagCog(commands.Cog):
     def __init__(self, bot:Bot):
         self.bot = bot
@@ -52,26 +61,29 @@ class ManageTagCog(commands.Cog):
             _kind = 0
             embeds:list[discord.Embed] = []
             await interaction.response.defer()
-            invite = await self.bot.fetch_invite(invite_url)
-            if "MEMBER_VERIFICATION_GATE_ENABLED" in invite.guild.features:
-                _kind = 1
-            else:
-                _kind = 0
+            invite:discord.Invite = await self.bot.fetch_invite(invite_url)
+            print(invite)
+            # invite.flags.value が 1（0ビット目）を持っているか確認
+            match (invite.flags.value & 1) != 0:
+                case True:
+                    _kind = 1
+                case False:
+                    _kind = 0
             kind = "参加申請" if _kind == 1 else "標準"
             if invite.type != discord.InviteType.guild:
                 raise Exception("指定されたURLはサーバー招待ではありません。")
             if "GUILD_TAGS" not in invite.guild.features:
                 raise Exception("指定された招待リンクのサーバーはギルドタグを持っていないようです。")
-            if invite.expires_at != None:
+            if invite.expires_at is not None:
                 sec_exp = 60*60*24
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(datetime.timezone.utc)
                 exp = invite.expires_at - now
                 invite_sec_exp = exp.total_seconds()
                 if invite_sec_exp < sec_exp:
                     raise Exception("招待リンクが1日未満で切れるため追加できません")
                 embeds.append(discord.Embed(
                     title="警告",
-                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{invite.expires_at.timestamp()}:f>",
+                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{math.floor(invite.expires_at.timestamp())}:f>",
                     colour=discord.Colour.orange()
                 ))
             
@@ -91,6 +103,9 @@ class ManageTagCog(commands.Cog):
                 raise Exception("登録済みです。")
             if ok != True:
                 raise Exception(f"データベースエラー:{res}")
+            data:Tags = await self.DB.get_tag(
+                tag_name=name
+            )
             embeds.insert(0, discord.Embed(
                 title="タグ追加",
                 description=f"""\
@@ -103,18 +118,24 @@ class ManageTagCog(commands.Cog):
                 **招待リンク** : {invite.url}""",
                 colour=discord.Colour.green()
             ).set_thumbnail(url=server_icon))
-            await interaction.followup.send(embeds=embeds)
+            await interaction.followup.send(
+                embeds=embeds,
+                view=TagLinkView(data.data[0].id)
+            )
             notice_ch = interaction.guild.get_channel(1409368112993927379)
-            nt_mes = await notice_ch.send(embed=discord.Embed(
-                title="タグが追加されました！",
-                description=f"""\
-                **タグ** : {name}
-                **サーバー名** : {invite.guild.name}
-                **カテゴリ** : {kind}
-                **主要言語** : {lang}
-                **招待リンク** : {invite.url}""",
-                colour=discord.Colour.green()
-            ).set_thumbnail(url=server_icon))
+            nt_mes = await notice_ch.send(
+                embed=discord.Embed(
+                    title="タグが追加されました！",
+                    description=f"""\
+                    **タグ** : {name}
+                    **サーバー名** : {invite.guild.name}
+                    **カテゴリ** : {kind}
+                    **主要言語** : {lang}
+                    **招待リンク** : {invite.url}""",
+                    colour=discord.Colour.green()
+                ).set_thumbnail(url=server_icon),
+                view=TagLinkView(data.data[0].id)
+            )
             await nt_mes.publish()
         except NotFound as e:
             await interaction.followup.send(embed=discord.Embed(
@@ -397,13 +418,14 @@ class ManageTagCog(commands.Cog):
                                     raise Exception("招待リンクが1日未満で切れるため追加できません")
                                 embeds.append(discord.Embed(
                                     title="警告",
-                                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{invite.expires_at.timestamp()}:f>",
+                                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{math.floor(invite.expires_at.timestamp())}:f>",
                                     colour=discord.Colour.orange()
                                 ))
-                            if "MEMBER_VERIFICATION_GATE_ENABLED" in invite.guild.features:
-                                _kind = 1
-                            else:
-                                _kind = 0
+                            match (invite.flags.value & 1) != 0:
+                                case True:
+                                    _kind = 1
+                                case False:
+                                    _kind = 0
                             ok, res = await self.DB.add_tag(
                                 guild_id=invite.guild.id,
                                 guild_name=invite.guild.name,
@@ -417,6 +439,9 @@ class ManageTagCog(commands.Cog):
                                 raise Exception("登録済みです。")
                             if ok != True:
                                 raise Exception(f"データベースエラー:{res}")
+                            tdata:Tags = await self.DB.get_tag(
+                                tag_name=data["name"]
+                            )
                             embeds.insert(0, discord.Embed(
                                 title="タグ追加",
                                 description=f"""\
@@ -429,7 +454,7 @@ class ManageTagCog(commands.Cog):
                                 **招待リンク** : {invite.url}""",
                                 colour=discord.Colour.green()
                             ).set_thumbnail(url=server_icon))
-                            await ctx.reply(embeds=embeds)
+                            await ctx.reply(embeds=embeds, view=TagLinkView(tdata.data[0].id))
                             notice_ch = ctx.guild.get_channel(1409368112993927379)
                             nt_mes = await notice_ch.send(embed=discord.Embed(
                                 title="タグが追加されました！",
@@ -440,7 +465,7 @@ class ManageTagCog(commands.Cog):
                                 **主要言語** : {data["lang"]}
                                 **招待リンク** : {invite.url}""",
                                 colour=discord.Colour.green()
-                            ).set_thumbnail(url=server_icon))
+                            ).set_thumbnail(url=server_icon), view=TagLinkView(tdata.data[0].id))
                             await nt_mes.publish()
         except NotFound as e:
             await ctx.send(embed=discord.Embed(

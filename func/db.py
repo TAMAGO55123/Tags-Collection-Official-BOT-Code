@@ -72,9 +72,9 @@ class Tag_DB:
         if category:
             params["category"] = category
         if lang:
-            params["lang"] = lang
+            params["lang"] = f"{lang}"
         if server_id:
-            params["server_id"] = server_id
+            params["server_id"] = f"{server_id}"
         params["skip"] = str(not has_d).lower()
         async with aiohttp.ClientSession() as session:
             async with session.get(API_URL, params=params) as resp:
