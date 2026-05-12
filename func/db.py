@@ -124,7 +124,7 @@ class Tag_DB:
                     return True, text
                 else:
                     return False, text
-    async def edit_tag(self, tag_id: int, tag_name:str = None, server_name:str = None, server_icon:str = None, server_invite:str = None) -> Tuple[bool, str]:
+    async def edit_tag(self, tag_id: int, tag_name:str = None, server_name:str = None, server_icon:str = None, server_invite:str = None, kind:int = None) -> Tuple[bool, str]:
         headers = {
             "x-api-key": API_KEY
         }
@@ -138,6 +138,9 @@ class Tag_DB:
             params["server_icon"] = server_icon
         if server_invite:
             params["server_invite"] = server_invite
+        if kind is not None:
+            params["kind"] = kind
+        print(params)
         async with aiohttp.ClientSession() as session:
             async with session.patch(url=url, headers=headers, json=params) as resp:
                 text = await resp.text()

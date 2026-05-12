@@ -53,7 +53,19 @@ class Form(Modal):
                 max_values=1
             )
         )
-        self.add_item(self.name).add_item(self.invite).add_item(self.lang)
+        self.kind = ui.Label(
+            text="アクセス範囲",
+            component=ui.Select(
+                required=True,
+                options=[
+                    SelectOption(label="標準", value=0),
+                    SelectOption(label="参加申請", value=1)
+                ],
+                min_values=1,
+                max_values=1
+            )
+        )
+        self.add_item(self.name).add_item(self.invite).add_item(self.lang).add_item(self.kind)
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
             await interaction.response.defer(ephemeral=True)
@@ -69,9 +81,10 @@ class Form(Modal):
                     discord.Embed(
                         title="タグの申請",
                         description=f"""
-                        タグ名: `{self.name.component.value}`
-                        招待リンク: `{self.invite.component.value}`
-                        主言語: `{self.lang.component.values[0]}`
+タグ名: `{self.name.component.value}`
+招待リンク: `{self.invite.component.value}`
+主言語: `{self.lang.component.values[0]}`
+アクセス範囲: `{"標準" if self.kind.component.values[0] == 0 else "参加申請"}`
                         """
                     ),
                     discord.Embed(
@@ -79,7 +92,8 @@ class Form(Modal):
                             "name": self.name.component.value,
                             "invite": self.invite.component.value,
                             "lang": self.lang.component.values[0],
-                            "at_id": interaction.user.id
+                            "at_id": interaction.user.id,
+                            "kind": self.kind.component.values[0]
                         }, ensure_ascii=False)
                     )
                 ]

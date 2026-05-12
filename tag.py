@@ -111,13 +111,13 @@ class TagCog(commands.Cog):
                     embed = discord.Embed(
                         title=f"ページ数({1} / {len(db.data)})",
                         description=f"""\
-                        **登録ID** : {a.id}
-                        **タグ** : {a.tag_name}
-                        **サーバー名** : {a.server_name}
-                        **カテゴリ** : {a.category}
-                        **主要言語** : {a.lang}
-                        **招待リンク** : {a.server_invite}
-                        **登録日** : <t:{a.created_at}:f>{webdes}
+**登録ID** : {a.id}
+**タグ** : {a.tag_name}
+**サーバー名** : {a.server_name}
+**カテゴリ** : {a.category}
+**主要言語** : {a.lang}
+**招待リンク** : {a.server_invite}
+**登録日** : <t:{a.created_at}:f>{webdes}
                         """,
                         colour=discord.Colour.random()
                     ).set_thumbnail(url=a.server_icon)
