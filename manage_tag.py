@@ -75,7 +75,7 @@ class ManageTagCog(commands.Cog):
                 raise Exception("指定された招待リンクのサーバーはギルドタグを持っていないようです。")
             if invite.expires_at != None:
                 sec_exp = 60*60*24
-                now = datetime.datetime.now()
+                now = datetime.datetime.now(datetime.timezone.utc())
                 exp = invite.expires_at - now
                 invite_sec_exp = exp.total_seconds()
                 if invite_sec_exp < sec_exp:
@@ -408,7 +408,7 @@ class ManageTagCog(commands.Cog):
                             embeds:list[discord.Embed] = []
                             if invite.expires_at != None:
                                 sec_exp = 60*60*24
-                                now = datetime.datetime.now()
+                                now = datetime.datetime.now(datetime.timezone.utc())
                                 exp = invite.expires_at - now
                                 invite_sec_exp = exp.total_seconds()
                                 if invite_sec_exp < sec_exp:
