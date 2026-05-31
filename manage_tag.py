@@ -23,6 +23,13 @@ import re
 class tagdb1(app_commands.Group):
     pass
 
+class ShareLinkView(discord.ui.View):
+    def __init__(self, *, url: str):
+        super().__init__(timeout=None)
+        self.url = url
+        self.button1 = discord.ui.Button(label="共有リンク", url=self.url)
+        self.add_item(self.button1)
+
 class ManageTagCog(commands.Cog):
     def __init__(self, bot:Bot):
         self.bot = bot
@@ -95,11 +102,13 @@ class ManageTagCog(commands.Cog):
                 raise Exception("登録済みです。")
             if ok != True:
                 raise Exception(f"データベースエラー:{res}")
+            tags: Tags = await self.DB.get_tag(server_id=invite.guild.id)
             embeds.insert(0, discord.Embed(
                 title="タグ追加",
                 description=f"""\
 **データベースに情報を追加しました。**
 ----------------------
+**ID** : {tags.data[0].id}
 **タグ** : {name}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
@@ -109,16 +118,21 @@ class ManageTagCog(commands.Cog):
             ).set_thumbnail(url=server_icon))
             await interaction.followup.send(embeds=embeds)
             notice_ch = interaction.guild.get_channel(1409368112993927379)
-            nt_mes = await notice_ch.send(embed=discord.Embed(
-                title="タグが追加されました！",
-                description=f"""\
+            nt_mes = await notice_ch.send(
+                embed=discord.Embed(
+                    title="タグが追加されました！",
+                    description=f"""\
 **タグ** : {name}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
 **主要言語** : {lang}
 **招待リンク** : {invite.url}""",
-                colour=discord.Colour.green()
-            ).set_thumbnail(url=server_icon), content="<@&1503764104483967237>")
+                    colour=discord.Colour.green()
+                )
+                .set_thumbnail(url=server_icon),
+                content="<@&1408781348134719595>",
+                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tags.data[0].id}")
+            )
             await nt_mes.publish()
         except NotFound as e:
             await interaction.followup.send(embed=discord.Embed(
@@ -419,11 +433,15 @@ class ManageTagCog(commands.Cog):
                                 raise Exception("登録済みです。")
                             if ok != True:
                                 raise Exception(f"データベースエラー:{res}")
+                            tags: Tags = await self.DB.get_tag(
+                                server_id=invite.guild.id
+                            )
                             embeds.insert(0, discord.Embed(
                                 title="タグ追加",
                                 description=f"""\
 **データベースに情報を追加しました。**
 ----------------------
+**ID** : {tags.data[0].id}
 **タグ** : {data["name"]}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
@@ -433,16 +451,21 @@ class ManageTagCog(commands.Cog):
                             ).set_thumbnail(url=server_icon))
                             await ctx.reply(embeds=embeds)
                             notice_ch = ctx.guild.get_channel(1409368112993927379)
-                            nt_mes = await notice_ch.send(embed=discord.Embed(
-                                title="タグが追加されました！",
-                                description=f"""\
+                            nt_mes = await notice_ch.send(
+                                embed=discord.Embed(
+                                    title="タグが追加されました！",
+                                    description=f"""\
 **タグ** : {data["name"]}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
 **主要言語** : {data["lang"]}
 **招待リンク** : {invite.url}""",
-                                colour=discord.Colour.green()
-                            ).set_thumbnail(url=server_icon), content="<@&1503764104483967237>")
+                                    colour=discord.Colour.green()
+                                )
+                                .set_thumbnail(url=server_icon),
+                                content="<@&1408781348134719595>",
+                                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tags.data[0].id}")
+                            )
                             await nt_mes.publish()
         except NotFound as e:
             await ctx.send(embed=discord.Embed(
