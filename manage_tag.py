@@ -102,13 +102,14 @@ class ManageTagCog(commands.Cog):
                 raise Exception("登録済みです。")
             if ok != True:
                 raise Exception(f"データベースエラー:{res}")
-            tags: Tags = await self.DB.get_tag(server_id=invite.guild.id)
+            tags: Tags = await self.DB.get_tag()
+            tag_id = tags.data[0].id if tags.count != 0 else "取得失敗"
             embeds.insert(0, discord.Embed(
                 title="タグ追加",
                 description=f"""\
 **データベースに情報を追加しました。**
 ----------------------
-**ID** : {tags.data[0].id}
+**ID** : {tag_id}
 **タグ** : {name}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
@@ -131,7 +132,7 @@ class ManageTagCog(commands.Cog):
                 )
                 .set_thumbnail(url=server_icon),
                 content="<@&1408781348134719595>",
-                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tags.data[0].id}")
+                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tag_id}")
             )
             await nt_mes.publish()
         except NotFound as e:
@@ -436,12 +437,13 @@ class ManageTagCog(commands.Cog):
                             tags: Tags = await self.DB.get_tag(
                                 server_id=invite.guild.id
                             )
+                            tag_id = tags.data[0].id if tags.count != 0 else "取得失敗"
                             embeds.insert(0, discord.Embed(
                                 title="タグ追加",
                                 description=f"""\
 **データベースに情報を追加しました。**
 ----------------------
-**ID** : {tags.data[0].id}
+**ID** : {tag_id}
 **タグ** : {data["name"]}
 **サーバー名** : {invite.guild.name}
 **カテゴリ** : {kind}
@@ -464,7 +466,7 @@ class ManageTagCog(commands.Cog):
                                 )
                                 .set_thumbnail(url=server_icon),
                                 content="<@&1408781348134719595>",
-                                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tags.data[0].id}")
+                                view=ShareLinkView(url=f"https://tags-collection.f5.si/server?id={tag_id}")
                             )
                             await nt_mes.publish()
         except NotFound as e:
