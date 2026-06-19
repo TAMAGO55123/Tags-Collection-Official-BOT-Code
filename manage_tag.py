@@ -5,13 +5,14 @@ from discord.errors import NotFound
 from discord.app_commands import Choice
 from discord.ui import View, button, Button
 from func.dc import Bot
-from func.log import get_log
+from func.log import get_log, ExceptionLoggerAdapter
 from typing import Literal
 import json
 import datetime
 import math
 from os import getenv
 from dotenv import load_dotenv
+from .func import lang as Langs
 
 from tags_collection import tag
 load_dotenv()
@@ -23,6 +24,14 @@ import re
 class tagdb1(app_commands.Group):
     pass
 
+class TagLinkButton(Button):
+    def __init__(self, id:int):
+        super().__init__(style=ButtonStyle.green, label="共有リンク", disabled=False, url=f"https://tags-collection.f5.si/server?id={id}")
+
+class TagLinkView(View):
+    def __init__(self, id:int):
+        super().__init__(timeout=None)
+        self.add_item(TagLinkButton(id=id))
 class ShareLinkView(discord.ui.View):
     def __init__(self, *, url: str):
         super().__init__(timeout=None)
@@ -56,24 +65,27 @@ class ManageTagCog(commands.Cog):
         interaction:discord.Interaction, 
         name:str, 
         invite_url:str, 
-        lang:Literal["Japanese", "English", "Chinese"],
+        lang:Langs.CommandOptions, #type: ignore
         kind:Literal["標準", "参加申請"]
     ):
         try:
             _kind = 0
             embeds:list[discord.Embed] = []
             await interaction.response.defer()
-            invite = await self.bot.fetch_invite(invite_url)
-            match kind:
-                case "標準":
-                    _kind = 0
-                case "参加申請":
+            invite:discord.Invite = await self.bot.fetch_invite(invite_url)
+            print(invite)
+            # invite.flags.value が 1（0ビット目）を持っているか確認
+            match (invite.flags.value & 1) != 0:
+                case True:
                     _kind = 1
+                case False:
+                    _kind = 0
+            kind = "参加申請" if _kind == 1 else "標準"
             if invite.type != discord.InviteType.guild:
                 raise Exception("指定されたURLはサーバー招待ではありません。")
             if "GUILD_TAGS" not in invite.guild.features:
                 raise Exception("指定された招待リンクのサーバーはギルドタグを持っていないようです。")
-            if invite.expires_at != None:
+            if invite.expires_at is not None:
                 sec_exp = 60*60*24
                 now = datetime.datetime.now(datetime.timezone.utc)
                 exp = invite.expires_at - now
@@ -82,7 +94,7 @@ class ManageTagCog(commands.Cog):
                     raise Exception("招待リンクが1日未満で切れるため追加できません")
                 embeds.append(discord.Embed(
                     title="警告",
-                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{invite.expires_at.timestamp()}:f>",
+                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{math.floor(invite.expires_at.timestamp())}:f>",
                     colour=discord.Colour.orange()
                 ))
             
@@ -117,7 +129,10 @@ class ManageTagCog(commands.Cog):
 **招待リンク** : {invite.url}""",
                 colour=discord.Colour.green()
             ).set_thumbnail(url=server_icon))
-            await interaction.followup.send(embeds=embeds)
+            await interaction.followup.send(
+                embeds=embeds,
+                view=TagLinkView(tags.data[0].id)
+            )
             notice_ch = interaction.guild.get_channel(1409368112993927379)
             nt_mes = await notice_ch.send(
                 embed=discord.Embed(
@@ -156,7 +171,31 @@ class ManageTagCog(commands.Cog):
                 colour=discord.Colour.red()
             ))
             self.log.error(e)
-    
+    class DeleteCheck(discord.ui.View):
+        def __init__(self, *, timeout = None, id:int, log:ExceptionLoggerAdapter, db:Tag_DB):
+            super().__init__(timeout=timeout)
+            self.log = log
+            self.tag_id = id
+            self.DB = db
+        @discord.ui.button(label="OK", style=discord.ButtonStyle.green)
+        async def ok(self, interaction:discord.Interaction, button: discord.ui.Button):
+            await interaction.response.defer()
+            try:
+                ok, res = await self.DB.delete_tag(id)
+                if ok != True:
+                    raise Exception(f"データベースエラー : {res}")
+                await interaction.followup.send(embed=discord.Embed(
+                    title="タグ削除",
+                    description="タグを削除しました。",
+                    colour=discord.Colour.red()
+                ))
+            except Exception as e:
+                await interaction.followup.send(embed=discord.Embed(
+                    title="エラー",
+                    description=f"タグの削除中にエラーが発生しました。\n```{e}```"
+                ))
+                self.log.error(e)
+
     @tagdb.command(name="delete", description="タグを削除します")
     @app_commands.describe(
         id="管理ID"
@@ -416,7 +455,7 @@ class ManageTagCog(commands.Cog):
                                     raise Exception("招待リンクが1日未満で切れるため追加できません")
                                 embeds.append(discord.Embed(
                                     title="警告",
-                                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{invite.expires_at.timestamp()}:f>",
+                                    description=f"**招待リンクの有効期限が無制限ではありません。**\n**有効期限** : <t:{math.floor(invite.expires_at.timestamp())}:f>",
                                     colour=discord.Colour.orange()
                                 ))
                             _kind = data["kind"]
@@ -451,7 +490,7 @@ class ManageTagCog(commands.Cog):
 **招待リンク** : {invite.url}""",
                                 colour=discord.Colour.green()
                             ).set_thumbnail(url=server_icon))
-                            await ctx.reply(embeds=embeds)
+                            await ctx.reply(embeds=embeds, view=TagLinkView(tdata.data[0].id))
                             notice_ch = ctx.guild.get_channel(1409368112993927379)
                             nt_mes = await notice_ch.send(
                                 embed=discord.Embed(
