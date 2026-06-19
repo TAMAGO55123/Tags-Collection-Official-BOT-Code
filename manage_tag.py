@@ -24,20 +24,21 @@ import re
 class tagdb1(app_commands.Group):
     pass
 
-class TagLinkButton(Button):
-    def __init__(self, id:int):
-        super().__init__(style=ButtonStyle.green, label="共有リンク", disabled=False, url=f"https://tags-collection.f5.si/server?id={id}")
+# class TagLinkButton(Button):
+#     def __init__(self, id:int):
+#         super().__init__(style=ButtonStyle.green, label="共有リンク", disabled=False, url=f"https://tags-collection.f5.si/server?id={id}")
 
-class TagLinkView(View):
-    def __init__(self, id:int):
-        super().__init__(timeout=None)
-        self.add_item(TagLinkButton(id=id))
+# class TagLinkView(View):
+#     def __init__(self, id:int):
+#         super().__init__(timeout=None)
+#         self.add_item(TagLinkButton(id=id))
 class ShareLinkView(discord.ui.View):
-    def __init__(self, *, url: str):
+    def __init__(self, url: str):
         super().__init__(timeout=None)
         self.url = url
         self.button1 = discord.ui.Button(label="共有リンク", url=self.url)
-        self.add_item(self.button1)
+        if "取得失敗" not in self.url:
+            self.add_item(self.button1)
 
 class ManageTagCog(commands.Cog):
     def __init__(self, bot:Bot):
@@ -114,7 +115,9 @@ class ManageTagCog(commands.Cog):
                 raise Exception("登録済みです。")
             if ok != True:
                 raise Exception(f"データベースエラー:{res}")
-            tags: Tags = await self.DB.get_tag()
+            tags: Tags = await self.DB.get_tag(
+                tag_name=name
+            )
             tag_id = tags.data[0].id if tags.count != 0 else "取得失敗"
             embeds.insert(0, discord.Embed(
                 title="タグ追加",
@@ -131,7 +134,7 @@ class ManageTagCog(commands.Cog):
             ).set_thumbnail(url=server_icon))
             await interaction.followup.send(
                 embeds=embeds,
-                view=TagLinkView(tags.data[0].id)
+                view=ShareLinkView(f"https://tags-collection.f5.si/server?id={tag_id}")
             )
             notice_ch = interaction.guild.get_channel(1409368112993927379)
             nt_mes = await notice_ch.send(
@@ -474,7 +477,7 @@ class ManageTagCog(commands.Cog):
                             if ok != True:
                                 raise Exception(f"データベースエラー:{res}")
                             tags: Tags = await self.DB.get_tag(
-                                server_id=invite.guild.id
+                                tag_name=data["name"]
                             )
                             tag_id = tags.data[0].id if tags.count != 0 else "取得失敗"
                             embeds.insert(0, discord.Embed(
@@ -490,7 +493,7 @@ class ManageTagCog(commands.Cog):
 **招待リンク** : {invite.url}""",
                                 colour=discord.Colour.green()
                             ).set_thumbnail(url=server_icon))
-                            await ctx.reply(embeds=embeds, view=TagLinkView(tdata.data[0].id))
+                            await ctx.reply(embeds=embeds, view=ShareLinkView(f"https://tags-collection.f5.si/server?id={tag_id}"))
                             notice_ch = ctx.guild.get_channel(1409368112993927379)
                             nt_mes = await notice_ch.send(
                                 embed=discord.Embed(
