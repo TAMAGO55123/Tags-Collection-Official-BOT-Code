@@ -52,9 +52,9 @@ class ManageTagCog(commands.Cog):
 
     
 
-    tagdb = tagdb1(name="tagdb", description="【β】タグに関するコマンド。", guild_ids=[1408781348134719588])
+    tagdb = tagdb1(name="tagdb", description="タグに関するコマンド。", guild_ids=[1408781348134719588])
 
-    @tagdb.command(name="add", description="【β】タグを追加します。")
+    @tagdb.command(name="add", description="タグを追加します。")
     @app_commands.describe(
         name="タグの名前",
         invite_url="サーバーの招待リンク(あればバニティURLとか)",

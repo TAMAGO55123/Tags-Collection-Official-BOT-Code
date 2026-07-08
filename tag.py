@@ -5,6 +5,7 @@ from discord.ui import Button, button, View
 from func.log import get_log
 from func.dc import Bot
 from .func.db import Tag_DB, Tag, Tags
+from .func import lang as Langs
 from typing import Literal
 from .func.tools import tc_ob
 
@@ -68,7 +69,7 @@ class TagCog(commands.Cog):
     class tag1(app_commands.Group):
         pass
 
-    tag = tag1(name="tag", description="【β】タグに関するコマンド。", guild_ids=[1408781348134719588])
+    tag = tag1(name="tag", description="タグに関するコマンド。", guild_ids=[1408781348134719588])
     
     @tag.command(name="list", description="タグのリストを取得します。(取得は50件ごと)")
     @app_commands.describe(
@@ -81,7 +82,7 @@ class TagCog(commands.Cog):
         interaction:discord.Interaction,
         name:str=None,
         category:Literal["標準", "参加申請"]=None,
-        lang:Literal["Japanese", "English", "Chinese"]=None,
+        lang:Langs.CommandOptions = None, #type: ignore
         page:int=1
     ):
         await interaction.response.defer()
