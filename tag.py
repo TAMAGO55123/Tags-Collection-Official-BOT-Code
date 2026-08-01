@@ -2,21 +2,40 @@ import discord
 from discord.ext import commands
 from discord import app_commands, ButtonStyle
 from discord.ui import Button, button, View
-from func.log import get_log
+from func.log import get_log, ExceptionLoggerAdapter
 from func.dc import Bot
 from .func.db import Tag_DB, Tag, Tags
 from .func import lang as Langs
 from typing import Literal
 from .func.tools import tc_ob
+from func.tagimage import create_tag_image
+from discord.http import Route
+import re
+import aiohttp
+from io import BytesIO
 
 class Tag_Embed(View):
-    def __init__(self, *, pages:list, timeout: float | None = 180):
+    def __init__(self, *, bot:Bot, pages:list, log:ExceptionLoggerAdapter, timeout: float | None = 180):
         super().__init__(timeout=timeout)
         self.pages:list[Tag] = pages
         self.current_page:int = 0
-    
-    async def update_message(self, interaction:discord.Interaction):
+        self.bot = bot
+        self.log = log
+
+    async def create_embed(self) -> tuple[discord.Embed, discord.File]:
         a = self.pages[self.current_page]
+        invite_p = re.compile(r"(?:https?:\/\/)?(?:discord\.gg|discord\.com\/invite)\/([A-Za-z0-9]+)")
+        invite_code = re.search(invite_p, a.server_invite).group(1)
+        res = await self.bot.http.request(Route("GET", "/invites/{invite_code}", invite_code=invite_code))
+        icon:BytesIO = None
+        file:discord.File = None
+        try:
+            async with aiohttp.ClientSession() as ses:
+                async with ses.get(f"https://cdn.discordapp.com/guild-tag-badges/{res["guild_id"]}/{res["profile"]["badge_hash"]}.png") as r:
+                    tag_icon = BytesIO(await r.read())
+            icon = await create_tag_image(tag_icon, a.tag_name)
+        except Exception as e:
+            self.log.error(e)
         embed = discord.Embed(
             title=f"ページ数({self.current_page + 1} / {len(self.pages)})",
             description=f"""\
@@ -26,9 +45,19 @@ class Tag_Embed(View):
 **カテゴリ** : {a.category}
 **主要言語** : {a.lang}
 **招待リンク** : {a.server_invite}
+**登録日** : <t:{a.created_at}:f>
 """,
             colour=discord.Colour.random()
         ).set_thumbnail(url=a.server_icon)
+        if icon:
+            file = discord.File(fp=icon, filename="badge.png")
+            print(file.uri)
+            embed.set_image(url=file.uri)
+        return (embed, file)
+    
+    async def update_message(self, interaction:discord.Interaction):
+        embed, file = await self.create_embed()
+        
         if self.current_page == 0:
             self.previous.disabled = True
         else:
@@ -37,7 +66,7 @@ class Tag_Embed(View):
             self.next.disabled = True
         else:
             self.next.disabled = False
-        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[file])
     
     @button(label="◀︎", style=ButtonStyle.secondary)
     async def previous(self, interaction:discord.Interaction, button:Button):
@@ -100,32 +129,12 @@ class TagCog(commands.Cog):
             db:Tags = await self.DB.get_tag(tag_name=name, category=_kind, lang=lang, page=page, has_d=has_role)
             if db:
                 if db.count != 0:
-                    view = Tag_Embed(pages=db.data)
-                    a = db.data[0]
-                    is_web = False
-                    webdes = ""
-                    if a.description == {}:
-                        is_web = False
-                    else:
-                        is_web = True
-                        webdes = f"\n**サーバー説明**\n{a.description["description"]}"
-                    embed = discord.Embed(
-                        title=f"ページ数({1} / {len(db.data)})",
-                        description=f"""\
-**登録ID** : {a.id}
-**タグ** : {a.tag_name}
-**サーバー名** : {a.server_name}
-**カテゴリ** : {a.category}
-**主要言語** : {a.lang}
-**招待リンク** : {a.server_invite}
-**登録日** : <t:{a.created_at}:f>{webdes}
-                        """,
-                        colour=discord.Colour.random()
-                    ).set_thumbnail(url=a.server_icon)
+                    view = Tag_Embed(pages=db.data, bot=self.bot, log=self.log)
+                    embed, file = await view.create_embed()
                     view.previous.disabled = True
                     if len(db.data) == 1 :
                         view.next.disabled = True
-                    await interaction.followup.send(embed=embed, view=view)
+                    await interaction.followup.send(embed=embed, view=view, file=file)
                 else:
                     await interaction.followup.send("タグがありません。")
             else:
