@@ -51,7 +51,7 @@ class Tag_Embed(View):
         ).set_thumbnail(url=a.server_icon)
         if icon:
             file = discord.File(fp=icon, filename="badge.png")
-            print(file.uri)
+            # print(file.uri)
             embed.set_image(url=file.uri)
         return (embed, file)
     
